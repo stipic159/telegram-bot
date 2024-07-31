@@ -238,63 +238,103 @@ bot.onText(/\/bc_gif (.+)/, async (msg, match) => {
   }
 });
 
-bot.onText(/\/smp/, async (msg) => {
-  const userId = msg.from.id;
-  // Проверка, что команду вызывает создатель
-  if (userId.toString() === data.creatorId) {
-  const iD = await new Promise((resolve, reject) => {
-    bot.sendMessage(userId, `Чтобы отправить сообщение пользователю, скажите мне telegram-id. Можно посмотреть его id в user.json`)
-      .then(() => bot.once('message', msg => resolve(msg.text)))
-      .catch(err => reject(err));
-  });
-  
-  const message = await new Promise((resolve, reject) => {
-    bot.sendMessage(userId, `Теперь мне нужно узнать сообщение, которое ты хочешь отправить пользователю`)
-      .then(() => bot.once('message', msg => resolve(msg.text)))
-      .catch(err => reject(err));
-  });
-  bot.sendMessage(iD, message)
-  bot.sendMessage(userId, `Сообщение пользователю успешно отправлено`)
-  console.log(`Сообщение пользователю - ${iD}, Успешно отправленно!`)
-}
-})
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-bot.on('polling_error', (error) => {
-  console.error('Polling error:', error);
-});
+const userStates = {}; 
 
 function readUsersFromFile() {
   const rawData = fs.readFileSync('./users.json');
   return JSON.parse(rawData);
 }
-// Обработка команды /send_user_info
-bot.onText(/\/sui/, (msg) => {
+
+bot.onText(/\/sui/, async (msg) => {
   const userId = msg.chat.id;
 
   if (userId.toString() !== data.creatorId) {
-      bot.sendMessage(userId, 'Эта команда доступна только создателю бота.');
-      return;
+    bot.sendMessage(userId, 'Эта команда доступна только создателю бота.');
+    return;
   }
 
   const users = readUsersFromFile();
   if (!users || Object.keys(users).length === 0) {
-      bot.sendMessage(userId, 'Нет данных о пользователях.');
-      return;
+    bot.sendMessage(userId, 'Нет данных о пользователях.');
+    return;
   }
 
-  let message = 'Информация о пользователях:\n\n';
-  for (const userId in users) {
-      const user = users[userId];
-      message += `ID пользователя: ${userId}\n`;
-      message += `Имя: ${user.name}\n`;
-      message += `Фамилия: ${user.surname}\n`;
-      message += `Местоположение: ${user.location}\n`;
-      message += `Дата рождения:\n`;
-      message += `День: ${user.dateOfBirth.day}\n`
-      message += `Месяц: ${user.dateOfBirth.month}\n`
-      message += `Год: ${user.dateOfBirth.year}\n`
-      message += `Номер телефона: ${user.phoneNumber}\n`;
-      message += `\n`
-      bot.sendMessage(data.creatorId, message)
-      .catch(err => console.error('Ошибка при отправке сообщения:', err));
-  }});
+  if (Object.keys(users).length > 3) {
+    // Устанавливаем состояние ожидания подтверждения
+    userStates[userId] = { waitingForConfirmation: true };
+
+    // Создаем клавиатуру с кнопками
+    const options = {
+      reply_markup: {
+        keyboard: [
+          [{ text: 'Да' }],
+          [{ text: 'Нет' }]
+        ],
+        one_time_keyboard: true,
+        resize_keyboard: true
+      }
+    };
+
+    // Отправляем сообщение с кнопками
+    bot.sendMessage(userId, 'У вас более 3 пользователей. Бот будет отправлять сообщения с интервалом в 4 секунды. Вы готовы продолжить?', options);
+  } else {
+    // Если пользователей 5 или меньше, сразу отправляем информацию
+    await sendUsersInfo(userId, users);
+  }
+});
+
+// Обработка сообщений, чтобы получить ответ на кнопки
+bot.on('message', async (msg) => {
+  const userId = msg.chat.id;
+  const text = msg.text.toLowerCase();
+
+  if (userStates[userId]?.waitingForConfirmation) {
+    if (text === 'да') {
+      const users = readUsersFromFile();
+      await sendUsersInfo(userId, users);
+      bot.sendMessage(userId, 'Операция выполнена.');
+    } else if (text === 'нет') {
+      bot.sendMessage(userId, 'Операция отменена.');
+    }
+
+    // Сброс состояния после получения ответа
+    userStates[userId] = { waitingForConfirmation: false };
+  }
+});
+
+// Функция для отправки информации о пользователях с задержкой
+async function sendUsersInfo(userId, users) {
+  const userIds = Object.keys(users);
+  const totalUsers = userIds.length;
+
+  bot.sendMessage(userId, `Всего пользователей: ${totalUsers}`);
+  await delay(1000);
+
+  for (let i = 0; i < totalUsers; i++) {
+    const id = userIds[i];
+    const user = users[id];
+
+    let message = `Пользователь ${i + 1} из ${totalUsers}:\n`;
+    message += `ID пользователя: ${id}\n`;
+    message += `Имя: ${user.name}\n`;
+    message += `Фамилия: ${user.surname}\n`;
+    message += `Местоположение: ${user.location}\n`;
+    message += `Дата рождения:\n`;
+    message += `День: ${user.dateOfBirth.day}\n`;
+    message += `Месяц: ${user.dateOfBirth.month}\n`;
+    message += `Год: ${user.dateOfBirth.year}\n`;
+    message += `Номер телефона: ${user.phoneNumber}\n`;
+    message += `\n`;
+
+    try {
+      await bot.sendMessage(userId, message);
+    } catch (err) {
+      console.error('Ошибка при отправке сообщения:', err);
+    }
+
+    // Пауза между отправкой сообщений
+    await delay(2500);
+  }
+}
