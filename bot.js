@@ -24,7 +24,7 @@ bot.on('chat_join_request', (msg) => {
     }
   };
 
-  // Отправляем сообщение пользователю
+  console.log(`${chatId} айди канала`)
   console.log(`Пользователь ${username}, отправил заявку в канал. Ждем когда он пройдет регестрацию.`)
   bot.sendMessage(userId, `Вы отправили заявку на вступление в канал. Пожалуйста, введите /start`, options)
     .catch(err => console.error('Ошибка при отправке сообщения о заявке:', err));
@@ -70,7 +70,7 @@ bot.on('callback_query', async (callbackQuery) => {
         });
         console.log(`Пользователь ${username}, ввел свою фамилию! Его фамилия: ${surname}`)
         const location = await new Promise((resolve, reject) => {
-          bot.sendMessage(userId, 'Пожалуйста, укажите ваше место нахождения (Село, Город, Деревня или Поселок):')
+          bot.sendMessage(userId, 'Пожалуйста, укажите ваше место нахождения (название Села, Города, Деревни или Поселка):')
             .then(() => bot.once('message', msg => resolve(msg.text)))
             .catch(err => reject(err));
         });
@@ -112,7 +112,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
         // Отправляем данные создателю и уведомляем пользователя
         const creatorId = data.creatorId;
-        await bot.sendMessage(creatorId, `Новая заявка от @${username}:\n\nИмя: ${name}\nФамилия: ${surname}\nДата рождения: ${birthDate.day}.${birthDate.month}.${birthDate.year}\nТелефон: ${phoneNumber}`);
+        await bot.sendMessage(creatorId, `Принял заявку в канал пользователя: @${username}. Информация о нем:\n\nИмя: ${name}\nФамилия: ${surname}\nМесто жительства: ${location}\nДата рождения: ${birthDate.day}.${birthDate.month}.${birthDate.year}\nТелефон: ${phoneNumber}`);
         await bot.sendMessage(userId, `Отлично! Вы успешно прошли регистрацию. Вы можете зайти в канал по этой ссылке:`, options);
 
         // Сохраняем данные пользователя
@@ -237,7 +237,27 @@ bot.onText(/\/bc_gif/, async (msg) => {
   }
 });
 
-// Обработка polling ошибок
+bot.onText(/\/smp/, async (msg) => {
+  const userId = msg.from.id;
+  // Проверка, что команду вызывает создатель
+  if (userId.toString() === data.creatorId) {
+  const iD = await new Promise((resolve, reject) => {
+    bot.sendMessage(userId, `Чтобы отправить сообщение пользователю, скажите мне telegram-id. Можно посмотреть его id в user.json`)
+      .then(() => bot.once('message', msg => resolve(msg.text)))
+      .catch(err => reject(err));
+  });
+  
+  const message = await new Promise((resolve, reject) => {
+    bot.sendMessage(userId, `Теперь мне нужно узнать сообщение, которое ты хочешь отправить пользователю`)
+      .then(() => bot.once('message', msg => resolve(msg.text)))
+      .catch(err => reject(err));
+  });
+  bot.sendMessage(iD, message)
+  bot.sendMessage(userId, `Сообщение пользователю успешно отправлено`)
+  console.log(`Сообщение пользователю - ${iD}, Успешно отправленно!`)
+}
+})
+
 bot.on('polling_error', (error) => {
   console.error('Polling error:', error);
 });
