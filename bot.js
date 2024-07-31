@@ -163,8 +163,9 @@ bot.onText(/\/bc (.+)/, async (msg, match) => {
 });
 
 // Обработка команды /broadcast_photo
-bot.onText(/\/bc_photo/, async (msg) => {
+bot.onText(/\/bc_photo (.+)/, async (msg, match) => {
   const userId = msg.from.id;
+  const message = match[1];
 
   // Проверка, что команду вызывает создатель
   if (userId.toString() === data.creatorId) {
@@ -174,7 +175,7 @@ bot.onText(/\/bc_photo/, async (msg) => {
         const photo = msg.photo[msg.photo.length - 1].file_id; // Получаем file_id последнего (наибольшего) фото
         const users = loadAllUsers();
         for (const user in users) {
-          await bot.sendPhoto(user, photo);
+          await bot.sendPhoto(user, photo, {caption: message});
         }
         console.log(`Рассылка сообщения:\n\n'${message}' + фото \n\nПроизошло успешно!`)
         await bot.sendMessage(userId, 'Рассылка фото завершена.');
@@ -188,9 +189,9 @@ bot.onText(/\/bc_photo/, async (msg) => {
 });
 
 // Обработка команды /broadcast_video
-bot.onText(/\/bc_video/, async (msg) => {
+bot.onText(/\/bc_video (.+)/, async (msg, match) => {
   const userId = msg.from.id;
-
+  const message = match[1];
   // Проверка, что команду вызывает создатель
   if (userId.toString() === data.creatorId) {
     bot.sendMessage(userId, 'Пожалуйста, отправьте видео для рассылки.');
@@ -199,7 +200,7 @@ bot.onText(/\/bc_video/, async (msg) => {
         const video = msg.video.file_id; // Получаем file_id видео
         const users = loadAllUsers();
         for (const user in users) {
-          await bot.sendVideo(user, video);
+          await bot.sendVideo(user, video, {caption: message});
         }
         await bot.sendMessage(userId, 'Рассылка видео завершена.');
         console.log(`Рассылка сообщения:\n\n'${message}' + видео \n\nПроизошло успешно!`)
@@ -213,9 +214,9 @@ bot.onText(/\/bc_video/, async (msg) => {
 });
 
 // Обработка команды /broadcast_animation
-bot.onText(/\/bc_gif/, async (msg) => {
+bot.onText(/\/bc_gif (.+)/, async (msg, match) => {
   const userId = msg.from.id;
-
+  const message = match[1];
   // Проверка, что команду вызывает создатель
   if (userId.toString() === data.creatorId) {
     bot.sendMessage(userId, 'Пожалуйста, отправьте анимацию (GIF) для рассылки.');
@@ -224,7 +225,7 @@ bot.onText(/\/bc_gif/, async (msg) => {
         const animation = msg.animation.file_id; // Получаем file_id анимации
         const users = loadAllUsers();
         for (const user in users) {
-          await bot.sendAnimation(user, animation);
+          await bot.sendAnimation(user, animation, {caption: message});
         }
         await bot.sendMessage(userId, 'Рассылка GIF завершена.');
         console.log(`Рассылка сообщения:\n\n'${message}' + GIF \n\nПроизошло успешно!`)
