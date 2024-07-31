@@ -69,6 +69,13 @@ bot.on('callback_query', async (callbackQuery) => {
             .catch(err => reject(err));
         });
         console.log(`Пользователь ${username}, ввел свою фамилию! Его фамилия: ${surname}`)
+        const location = await new Promise((resolve, reject) => {
+          bot.sendMessage(userId, 'Пожалуйста, укажите ваше место нахождения (Село, Город, Деревня или Поселок):')
+            .then(() => bot.once('message', msg => resolve(msg.text)))
+            .catch(err => reject(err));
+        });
+        console.log(`Пользователь ${username}, указал место нахождения: ${location}`);
+
         const birthDate = await new Promise((resolve, reject) => {
           requestValidDate(bot, userId, resolve, username);
         });
@@ -113,6 +120,7 @@ bot.on('callback_query', async (callbackQuery) => {
           userId,
           name,
           surname,
+          location,
           dateOfBirth: {
             day: birthDate.day,
             month: birthDate.month,
