@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { saveUserData, loadAllUsers, requestValidDate } = require('./utils'); // Импорт функций
 const data = require('./data'); // Импорт данных из data.json
-
+const fs = require('fs');
 const bot = new TelegramBot(data.botToken, { polling: true });
 const userRequests = {};
 
@@ -262,3 +262,39 @@ bot.onText(/\/smp/, async (msg) => {
 bot.on('polling_error', (error) => {
   console.error('Polling error:', error);
 });
+
+function readUsersFromFile() {
+  const rawData = fs.readFileSync('./users.json');
+  return JSON.parse(rawData);
+}
+// Обработка команды /send_user_info
+bot.onText(/\/sui/, (msg) => {
+  const userId = msg.chat.id;
+
+  if (userId.toString() !== data.creatorId) {
+      bot.sendMessage(userId, 'Эта команда доступна только создателю бота.');
+      return;
+  }
+
+  const users = readUsersFromFile();
+  if (!users || Object.keys(users).length === 0) {
+      bot.sendMessage(userId, 'Нет данных о пользователях.');
+      return;
+  }
+
+  let message = 'Информация о пользователях:\n\n';
+  for (const userId in users) {
+      const user = users[userId];
+      message += `ID пользователя: ${userId}\n`;
+      message += `Имя: ${user.name}\n`;
+      message += `Фамилия: ${user.surname}\n`;
+      message += `Местоположение: ${user.location}\n`;
+      message += `Дата рождения:\n`;
+      message += `День: ${user.dateOfBirth.day}\n`
+      message += `Месяц: ${user.dateOfBirth.month}\n`
+      message += `Год: ${user.dateOfBirth.year}\n`
+      message += `Номер телефона: ${user.phoneNumber}\n`;
+      message += `\n`
+      bot.sendMessage(data.creatorId, message)
+      .catch(err => console.error('Ошибка при отправке сообщения:', err));
+  }});
