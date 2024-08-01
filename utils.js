@@ -1,16 +1,11 @@
-// utils.js
 const fs = require('fs');
-
-// Функция для сохранения данных пользователей в JSON файл
 const saveUserData = (userId, userData) => {
   const users = JSON.parse(fs.readFileSync('users.json', 'utf8'));
   users[userId] = userData;
   fs.writeFileSync('users.json', JSON.stringify(users, null, 2), 'utf8');
 };
 
-// Функция для проверки формата и валидности даты
 const isValidDate = (dateString) => {
-  // Проверка формата даты (ДД.ММ.ГГГГ)
   const datePattern = /^(\d{2})\.(\d{2})\.(\d{4})$/;
   const match = datePattern.exec(dateString);
 
@@ -20,12 +15,10 @@ const isValidDate = (dateString) => {
   const month = parseInt(match[2], 10);
   const year = parseInt(match[3], 10);
 
-  // Проверка валидности даты
   const date = new Date(year, month - 1, day);
   return date.getDate() === day && date.getMonth() === month - 1 && date.getFullYear() === year;
 };
 
-// Функция для проверки, является ли дата разумной (не слишком старая и не в будущем)
 const isReasonableDate = (dateString) => {
   const today = new Date();
   const datePattern = /^(\d{2})\.(\d{2})\.(\d{4})$/;
@@ -38,12 +31,9 @@ const isReasonableDate = (dateString) => {
   const year = parseInt(match[3], 10);
 
   const date = new Date(year, month - 1, day);
-
-  // Дата должна быть в прошлом и не раньше 1900 года
   return date < today && date >= new Date('1900-01-01');
 };
 
-// Функция для запроса корректной даты у пользователя
 const requestValidDate = (bot, userId, callback, username) => {
   bot.sendMessage(userId, 'Пожалуйста, укажите вашу дату рождения (в формате ДД.ММ.ГГГГ):');
   

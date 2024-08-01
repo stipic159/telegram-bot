@@ -1,17 +1,15 @@
 const TelegramBot = require('node-telegram-bot-api');
-const { saveUserData, loadAllUsers, requestValidDate } = require('./utils'); // Импорт функций
-const data = require('./data'); // Импорт данных из data.json
+const { saveUserData, loadAllUsers, requestValidDate } = require('./utils'); 
+const data = require('./data'); 
 const fs = require('fs');
 const bot = new TelegramBot(data.botToken, { polling: true });
 const userRequests = {};
 
-// Обработка событий вступления в канал
 bot.on('chat_join_request', (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   const username = msg.from.username;
 
-  // Запоминаем информацию о пользователе и запросе
   userRequests[userId] = { chatId, username };
 
   const options = {
@@ -19,8 +17,8 @@ bot.on('chat_join_request', (msg) => {
       keyboard: [
         ['/start']
       ],
-      resize_keyboard: true, // Автоматически изменяет размер клавиатуры
-      one_time_keyboard: true // Клавиатура скрывается после выбора
+      resize_keyboard: true,
+      one_time_keyboard: true
     }
   };
 
@@ -30,7 +28,6 @@ bot.on('chat_join_request', (msg) => {
     .catch(err => console.error('Ошибка при отправке сообщения о заявке:', err));
 });
 
-// Обработка команды /start
 bot.onText(/\/start/, (msg) => {
   const userId = msg.from.id;
 
@@ -45,13 +42,12 @@ bot.onText(/\/start/, (msg) => {
   }
 });
 
-// Обработка нажатия на инлайн-кнопки
 bot.on('callback_query', async (callbackQuery) => {
   const userId = callbackQuery.from.id;
   const callbackData = callbackQuery.data;
 
   if (callbackData.startsWith('provide_data_')) {
-    const requestId = callbackData.split('_')[2]; // Получаем userId из callbackData
+    const requestId = callbackData.split('_')[2];
 
     if (userRequests[requestId]) {
       try {
@@ -103,19 +99,16 @@ bot.on('callback_query', async (callbackQuery) => {
               [
                 {
                   text: 'Перейти в канал',
-                  url: data.channelUrl // Используем URL из data.json
+                  url: data.channelUrl
                 }
               ]
             ]
           }
         };
 
-        // Отправляем данные создателю и уведомляем пользователя
         const creatorId = data.creatorId;
         await bot.sendMessage(creatorId, `Принял заявку в канал пользователя: @${username}. Информация о нем:\n\nИмя: ${name}\nФамилия: ${surname}\nМесто жительства: ${location}\nДата рождения: ${birthDate.day}.${birthDate.month}.${birthDate.year}\nТелефон: ${phoneNumber}`);
         await bot.sendMessage(userId, `Отлично! Вы успешно прошли регистрацию. Вы можете зайти в канал по этой ссылке:`, options);
-
-        // Сохраняем данные пользователя
         const userData = {
           userId,
           name,
@@ -129,8 +122,6 @@ bot.on('callback_query', async (callbackQuery) => {
           phoneNumber
         };
         saveUserData(userId, userData);
-
-        // Одобряем заявку на вступление в канал
         await bot.approveChatJoinRequest(userRequests[requestId].chatId, requestId);
       } catch (err) {
         console.error('Ошибка при обработке данных пользователя:', err);
@@ -139,13 +130,9 @@ bot.on('callback_query', async (callbackQuery) => {
     }
   }
 });
-
-// Обработка команды /broadcast_text
 bot.onText(/\/bc (.+)/, async (msg, match) => {
   const userId = msg.from.id;
-  const message = match[1]; // Текст сообщения после команды /broadcast_text
-
-  // Проверка, что команду вызывает создатель
+  const message = match[1]; 
   if (userId.toString() === data.creatorId) {
     const users = loadAllUsers();
     for (const user in users) {
@@ -162,17 +149,15 @@ bot.onText(/\/bc (.+)/, async (msg, match) => {
   }
 });
 
-// Обработка команды /broadcast_photo
 bot.onText(/\/bc_photo (.+)/, async (msg, match) => {
   const userId = msg.from.id;
   const message = match[1];
 
-  // Проверка, что команду вызывает создатель
   if (userId.toString() === data.creatorId) {
     bot.sendMessage(userId, 'Пожалуйста, отправьте фото для рассылки.');
     bot.once('photo', async (msg) => {
       try {
-        const photo = msg.photo[msg.photo.length - 1].file_id; // Получаем file_id последнего (наибольшего) фото
+        const photo = msg.photo[msg.photo.length - 1].file_id;
         const users = loadAllUsers();
         for (const user in users) {
           await bot.sendPhoto(user, photo, {caption: message});
@@ -188,16 +173,14 @@ bot.onText(/\/bc_photo (.+)/, async (msg, match) => {
   }
 });
 
-// Обработка команды /broadcast_video
 bot.onText(/\/bc_video (.+)/, async (msg, match) => {
   const userId = msg.from.id;
   const message = match[1];
-  // Проверка, что команду вызывает создатель
   if (userId.toString() === data.creatorId) {
     bot.sendMessage(userId, 'Пожалуйста, отправьте видео для рассылки.');
     bot.once('video', async (msg) => {
       try {
-        const video = msg.video.file_id; // Получаем file_id видео
+        const video = msg.video.file_id;
         const users = loadAllUsers();
         for (const user in users) {
           await bot.sendVideo(user, video, {caption: message});
@@ -213,16 +196,14 @@ bot.onText(/\/bc_video (.+)/, async (msg, match) => {
   }
 });
 
-// Обработка команды /broadcast_animation
 bot.onText(/\/bc_gif (.+)/, async (msg, match) => {
   const userId = msg.from.id;
   const message = match[1];
-  // Проверка, что команду вызывает создатель
   if (userId.toString() === data.creatorId) {
     bot.sendMessage(userId, 'Пожалуйста, отправьте анимацию (GIF) для рассылки.');
     bot.once('animation', async (msg) => {
       try {
-        const animation = msg.animation.file_id; // Получаем file_id анимации
+        const animation = msg.animation.file_id;
         const users = loadAllUsers();
         for (const user in users) {
           await bot.sendAnimation(user, animation, {caption: message});
@@ -262,10 +243,7 @@ bot.onText(/\/sui/, async (msg) => {
   }
 
   if (Object.keys(users).length > 3) {
-    // Устанавливаем состояние ожидания подтверждения
     userStates[userId] = { waitingForConfirmation: true };
-
-    // Создаем клавиатуру с кнопками
     const options = {
       reply_markup: {
         keyboard: [
@@ -276,16 +254,11 @@ bot.onText(/\/sui/, async (msg) => {
         resize_keyboard: true
       }
     };
-
-    // Отправляем сообщение с кнопками
     bot.sendMessage(userId, 'У вас более 3 пользователей. Бот будет отправлять сообщения с интервалом в 4 секунды. Вы готовы продолжить?', options);
   } else {
-    // Если пользователей 5 или меньше, сразу отправляем информацию
     await sendUsersInfo(userId, users);
   }
 });
-
-// Обработка сообщений, чтобы получить ответ на кнопки
 bot.on('message', async (msg) => {
   const userId = msg.chat.id;
   const text = msg.text.toLowerCase();
@@ -298,13 +271,9 @@ bot.on('message', async (msg) => {
     } else if (text === 'нет') {
       bot.sendMessage(userId, 'Операция отменена.');
     }
-
-    // Сброс состояния после получения ответа
     userStates[userId] = { waitingForConfirmation: false };
   }
 });
-
-// Функция для отправки информации о пользователях с задержкой
 async function sendUsersInfo(userId, users) {
   const userIds = Object.keys(users);
   const totalUsers = userIds.length;
@@ -327,14 +296,10 @@ async function sendUsersInfo(userId, users) {
     message += `Год: ${user.dateOfBirth.year}\n`;
     message += `Номер телефона: ${user.phoneNumber}\n`;
     message += `\n`;
-
     try {
       await bot.sendMessage(userId, message);
     } catch (err) {
       console.error('Ошибка при отправке сообщения:', err);
     }
-
-    // Пауза между отправкой сообщений
     await delay(2500);
-  }
-}
+  }}
