@@ -3,6 +3,7 @@ const saveUserData = (userId, userData) => {
   const users = JSON.parse(fs.readFileSync('users.json', 'utf8'));
   users[userId] = userData;
   fs.writeFileSync('users.json', JSON.stringify(users, null, 2), 'utf8');
+  console.log(`Пользователь успешно добавлен в базу данных.\nМожно просмотреть список всех пользователей с помощью /sui`)
 };
 
 const isValidDate = (dateString) => {
@@ -50,7 +51,6 @@ const requestValidDate = (bot, userId, callback, username) => {
       const [day, month, year] = birthDate.split('.');
       callback({ day, month, year });
     }
-    console.log(`Пользователь ${username}, ввел свою дату рождения!Его дата рожения: ${birthDate}`)
   });
 };
 const loadAllUsers = () => {

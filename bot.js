@@ -1,10 +1,10 @@
 const TelegramBot = require('node-telegram-bot-api');
-const { saveUserData, loadAllUsers, requestValidDate } = require('./utils'); 
-const data = require('./data'); 
+const { saveUserData, loadAllUsers, requestValidDate } = require('./utils');
+const data = require('./data');
 const fs = require('fs');
 const bot = new TelegramBot(data.botToken, { polling: true });
 const userRequests = {};
-
+const userStates = {};
 bot.on('chat_join_request', (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
@@ -12,31 +12,22 @@ bot.on('chat_join_request', (msg) => {
 
   userRequests[userId] = { chatId, username };
 
-  const options = {
+  bot.sendMessage(userId, 'Вы отправили заявку на вступление в канал. Пожалуйста, введите /start', {
     reply_markup: {
-      keyboard: [
-        ['/start']
-      ],
+      keyboard: [['/start']],
       resize_keyboard: true,
       one_time_keyboard: true
     }
-  };
-
-  console.log(`${chatId} айди канала`)
-  console.log(`Пользователь ${username}, отправил заявку в канал. Ждем когда он пройдет регестрацию.`)
-  bot.sendMessage(userId, `Вы отправили заявку на вступление в канал. Пожалуйста, введите /start`, options)
-    .catch(err => console.error('Ошибка при отправке сообщения о заявке:', err));
+  }).catch(err => console.error('Ошибка при отправке сообщения о заявке:', err));
 });
 
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start/, async (msg) => {
   const userId = msg.from.id;
 
   if (userRequests[userId]) {
     bot.sendMessage(userId, 'Предоставьте данные, чтобы я мог пропустить вас в канал.', {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Предоставить данные', callback_data: `provide_data_${userId}` }]
-        ]
+        inline_keyboard: [[{ text: 'Предоставить данные', callback_data: `provide_data_${userId}` }]]
       }
     }).catch(err => console.error('Ошибка при отправке сообщения о предоставлении данных:', err));
   }
@@ -45,6 +36,7 @@ bot.onText(/\/start/, (msg) => {
 bot.on('callback_query', async (callbackQuery) => {
   const userId = callbackQuery.from.id;
   const callbackData = callbackQuery.data;
+  const username = callbackQuery.from.username
 
   if (callbackData.startsWith('provide_data_')) {
     const requestId = callbackData.split('_')[2];
@@ -52,216 +44,103 @@ bot.on('callback_query', async (callbackQuery) => {
     if (userRequests[requestId]) {
       try {
         const { username } = userRequests[requestId];
-        const name = await new Promise((resolve, reject) => {
-          bot.sendMessage(userId, 'Пожалуйста, укажите ваше имя:')
-            .then(() => bot.once('message', msg => resolve(msg.text)))
-            .catch(err => reject(err));
-        });
-        console.log(`Пользователь ${username}, ввел свое имя! Его зовут: ${name}`)
-
-        const surname = await new Promise((resolve, reject) => {
-          bot.sendMessage(userId, 'Пожалуйста, укажите вашу фамилию:')
-            .then(() => bot.once('message', msg => resolve(msg.text)))
-            .catch(err => reject(err));
-        });
-        console.log(`Пользователь ${username}, ввел свою фамилию! Его фамилия: ${surname}`)
-        const location = await new Promise((resolve, reject) => {
-          bot.sendMessage(userId, 'Пожалуйста, укажите ваше место нахождения (название Села, Города, Деревни или Поселка):')
-            .then(() => bot.once('message', msg => resolve(msg.text)))
-            .catch(err => reject(err));
-        });
-        console.log(`Пользователь ${username}, указал место нахождения: ${location}`);
-
-        const birthDate = await new Promise((resolve, reject) => {
-          requestValidDate(bot, userId, resolve, username);
-        });
-
-        const phoneNumber = await new Promise((resolve, reject) => {
-          bot.sendMessage(userId, 'Пожалуйста, отправьте ваш номер телефона:', {
-            reply_markup: {
-              keyboard: [
-                [{
-                  text: 'Отправить номер телефона',
-                  request_contact: true
-                }]
-              ],
-              one_time_keyboard: true
-            }
-          })
-            .then(() => bot.once('contact', msg => resolve(msg.contact.phone_number)))
-            .catch(err => reject(err));
-        });
-        console.log(`Пользователь ${username}, ввел свой номер теелфона! Его номер теелфона: ${phoneNumber}`)
-
-        const options = {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: 'Перейти в канал',
-                  url: data.channelUrl
-                }
-              ]
-            ]
-          }
-        };
-
+        const name = await getUserInput(userId, 'Пожалуйста, укажите ваше имя:');
+        console.log(`Пользователь @${username} (${userid}) ввел свое имя.`)
+        const surname = await getUserInput(userId, 'Пожалуйста, укажите вашу фамилию:');
+        console.log(`Пользователь @${username} (${userid}) ввел свою фамилию.`)
+        const location = await getUserInput(userId, 'Пожалуйста, укажите ваше место нахождения (название Села, Города, Деревни или Поселка):');
+        console.log(`Пользователь @${username} (${userid}) ввел свою лакацию.`)
+        const birthDate = await new Promise((resolve, reject) => requestValidDate(bot, userId, resolve, username));
+        console.log(`Пользователь @${username} (${userid}) ввел свою (коректную) дату рождения.`)
+        const phoneNumber = await getUserContact(userId);
+        console.log(`Пользователь @${username} (${userid}) ввел свой номер телефона. Это последнее что он сделал. Вся информация о нем:`)
         const creatorId = data.creatorId;
         await bot.sendMessage(creatorId, `Принял заявку в канал пользователя: @${username}. Информация о нем:\n\nИмя: ${name}\nФамилия: ${surname}\nМесто жительства: ${location}\nДата рождения: ${birthDate.day}.${birthDate.month}.${birthDate.year}\nТелефон: ${phoneNumber}`);
-        await bot.sendMessage(userId, `Отлично! Вы успешно прошли регистрацию. Вы можете зайти в канал по этой ссылке:`, options);
-        const userData = {
-          userId,
-          name,
-          surname,
-          location,
-          dateOfBirth: {
-            day: birthDate.day,
-            month: birthDate.month,
-            year: birthDate.year
-          },
-          phoneNumber
-        };
-        saveUserData(userId, userData);
+        await console.log(`пользователь: @${username} (${userId}). Информация о нем:\n\nИмя: ${name}\nФамилия: ${surname}\nМесто жительства: ${location}\nДата рождения: ${birthDate.day}.${birthDate.month}.${birthDate.year}\nТелефон: ${phoneNumber}`)
+        const options = { reply_markup: { inline_keyboard: [[{ text: 'Перейти в канал', url: data.channelUrl }]] } };
+        await bot.sendMessage(userId, 'Отлично! Вы успешно прошли регистрацию. Вы можете зайти в канал по этой ссылке:', options);
         await bot.approveChatJoinRequest(userRequests[requestId].chatId, requestId);
+        await console.log(`Заявка в канал принята, записываю пользователя в базу данных...`)
+        await delay(1000);
+        const userData = { userId, name, surname, location, dateOfBirth: birthDate, phoneNumber };
+        saveUserData(userId, userData);
+        await console.log(`Пользователь успешно добавлен в базу данных.\nМожно просмотреть список всех пользователей с помощью /sui`)
+        delete userRequests[requestId];
       } catch (err) {
         console.error('Ошибка при обработке данных пользователя:', err);
       }
-      delete userRequests[requestId];
     }
   }
 });
+
 bot.onText(/\/bc (.+)/, async (msg, match) => {
   const userId = msg.from.id;
-  const message = match[1]; 
+  const message = match[1];
+  
   if (userId.toString() === data.creatorId) {
     const users = loadAllUsers();
-    for (const user in users) {
-      try {
-        await bot.sendMessage(user, message);
-      } catch (err) {
-        console.error(`Ошибка при отправке сообщения пользователю ${user}:`, err);
-      }
-    }
+    await Promise.all(Object.keys(users).map(user => bot.sendMessage(user, message)));
     await bot.sendMessage(userId, 'Рассылка текстового сообщения завершена.');
-    console.log(`Рассылка сообщения:\n\n'${message}'\n\nПроизошло успешно!`)
+    await console.log(`Рассылка сообщения:\n\n${message}\n\nУспешно завершено!`)
   } else {
     await bot.sendMessage(userId, 'У вас нет прав для выполнения этой команды.');
   }
 });
 
-bot.onText(/\/bc_photo (.+)/, async (msg, match) => {
+bot.onText(/\/bc_(photo|video|gif) (.+)/, async (msg, match) => {
   const userId = msg.from.id;
-  const message = match[1];
-
+  const type = match[1];
+  const message = match[2];
+  
   if (userId.toString() === data.creatorId) {
-    bot.sendMessage(userId, 'Пожалуйста, отправьте фото для рассылки.');
-    bot.once('photo', async (msg) => {
+    bot.sendMessage(userId, `Пожалуйста, отправьте ${type} для рассылки.`);
+    
+    bot.once(type, async (msg) => {
       try {
-        const photo = msg.photo[msg.photo.length - 1].file_id;
+        const fileId = msg[type].file_id;
         const users = loadAllUsers();
-        for (const user in users) {
-          await bot.sendPhoto(user, photo, {caption: message});
-        }
-        console.log(`Рассылка сообщения:\n\n'${message}' + фото \n\nПроизошло успешно!`)
-        await bot.sendMessage(userId, 'Рассылка фото завершена.');
+        await Promise.all(Object.keys(users).map(user => bot[`send${capitalizeFirstLetter(type)}`](user, fileId, { caption: message })));
+        await bot.sendMessage(userId, `Рассылка ${type} + сообщение завершена.`);
+        await console.log(`Рассылка сообщения:\n\n${message} + ${type}\n\nУспешно завершено!`)
       } catch (err) {
-        console.error('Ошибка при отправке фото:', err);
+        console.error(`Ошибка при отправке ${type}:`, err);
       }
     });
   } else {
     await bot.sendMessage(userId, 'У вас нет прав для выполнения этой команды.');
   }
 });
-
-bot.onText(/\/bc_video (.+)/, async (msg, match) => {
-  const userId = msg.from.id;
-  const message = match[1];
-  if (userId.toString() === data.creatorId) {
-    bot.sendMessage(userId, 'Пожалуйста, отправьте видео для рассылки.');
-    bot.once('video', async (msg) => {
-      try {
-        const video = msg.video.file_id;
-        const users = loadAllUsers();
-        for (const user in users) {
-          await bot.sendVideo(user, video, {caption: message});
-        }
-        await bot.sendMessage(userId, 'Рассылка видео завершена.');
-        console.log(`Рассылка сообщения:\n\n'${message}' + видео \n\nПроизошло успешно!`)
-      } catch (err) {
-        console.error('Ошибка при отправке видео:', err);
-      }
-    });
-  } else {
-    await bot.sendMessage(userId, 'У вас нет прав для выполнения этой команды.');
-  }
-});
-
-bot.onText(/\/bc_gif (.+)/, async (msg, match) => {
-  const userId = msg.from.id;
-  const message = match[1];
-  if (userId.toString() === data.creatorId) {
-    bot.sendMessage(userId, 'Пожалуйста, отправьте анимацию (GIF) для рассылки.');
-    bot.once('animation', async (msg) => {
-      try {
-        const animation = msg.animation.file_id;
-        const users = loadAllUsers();
-        for (const user in users) {
-          await bot.sendAnimation(user, animation, {caption: message});
-        }
-        await bot.sendMessage(userId, 'Рассылка GIF завершена.');
-        console.log(`Рассылка сообщения:\n\n'${message}' + GIF \n\nПроизошло успешно!`)
-      } catch (err) {
-        console.error('Ошибка при отправке анимации:', err);
-      }
-    });
-  } else {
-    await bot.sendMessage(userId, 'У вас нет прав для выполнения этой команды.');
-  }
-});
-
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-const userStates = {}; 
-
-function readUsersFromFile() {
-  const rawData = fs.readFileSync('./users.json');
-  return JSON.parse(rawData);
-}
 
 bot.onText(/\/sui/, async (msg) => {
   const userId = msg.chat.id;
 
-  if (userId.toString() !== data.creatorId) {
-    bot.sendMessage(userId, 'Эта команда доступна только создателю бота.');
-    return;
-  }
+  if (userId.toString() === data.creatorId) {
+    const users = readUsersFromFile();
+    if (Object.keys(users).length === 0) {
+      bot.sendMessage(userId, 'Нет данных о пользователях.');
+      return;
+    }
 
-  const users = readUsersFromFile();
-  if (!users || Object.keys(users).length === 0) {
-    bot.sendMessage(userId, 'Нет данных о пользователях.');
-    return;
-  }
-
-  if (Object.keys(users).length > 3) {
-    userStates[userId] = { waitingForConfirmation: true };
-    const options = {
-      reply_markup: {
-        keyboard: [
-          [{ text: 'Да' }],
-          [{ text: 'Нет' }]
-        ],
-        one_time_keyboard: true,
-        resize_keyboard: true
-      }
-    };
-    bot.sendMessage(userId, 'У вас более 3 пользователей. Бот будет отправлять сообщения с интервалом в 4 секунды. Вы готовы продолжить?', options);
+    if (Object.keys(users).length > 3) {
+      userStates[userId] = { waitingForConfirmation: true };
+      bot.sendMessage(userId, 'У вас более 3 пользователей. Бот будет отправлять сообщения с интервалом в 2,5 секунды. Вы готовы продолжить?', {
+        reply_markup: {
+          keyboard: [[{ text: 'Да' }], [{ text: 'Нет' }]],
+          one_time_keyboard: true,
+          resize_keyboard: true
+        }
+      });
+    } else {
+      await sendUsersInfo(userId, users);
+    }
   } else {
-    await sendUsersInfo(userId, users);
+    bot.sendMessage(userId, 'Эта команда доступна только создателю бота.');
   }
 });
+
 bot.on('message', async (msg) => {
   const userId = msg.chat.id;
-  const text = msg.text.toLowerCase();
+  const text = msg.text ? msg.text.toLowerCase() : ''; // Проверка на undefined
 
   if (userStates[userId]?.waitingForConfirmation) {
     if (text === 'да') {
@@ -274,32 +153,54 @@ bot.on('message', async (msg) => {
     userStates[userId] = { waitingForConfirmation: false };
   }
 });
+
+async function getUserInput(userId, question) {
+  return new Promise((resolve, reject) => {
+    bot.sendMessage(userId, question)
+      .then(() => bot.once('message', msg => resolve(msg.text)))
+      .catch(err => reject(err));
+  });
+}
+
+async function getUserContact(userId) {
+  return new Promise((resolve, reject) => {
+    bot.sendMessage(userId, 'Пожалуйста, отправьте ваш номер телефона:', {
+      reply_markup: {
+        keyboard: [[{ text: 'Отправить номер телефона', request_contact: true }]],
+        one_time_keyboard: true
+      }
+    })
+    .then(() => bot.once('contact', msg => resolve(msg.contact.phone_number)))
+    .catch(err => reject(err));
+  });
+}
+
+function readUsersFromFile() {
+  return JSON.parse(fs.readFileSync('./users.json'));
+}
+
+function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
 async function sendUsersInfo(userId, users) {
   const userIds = Object.keys(users);
-  const totalUsers = userIds.length;
-
-  bot.sendMessage(userId, `Всего пользователей: ${totalUsers}`);
+  bot.sendMessage(userId, `Всего пользователей: ${userIds.length}`);
+  
   await delay(1000);
-
-  for (let i = 0; i < totalUsers; i++) {
-    const id = userIds[i];
+  
+  for (const [i, id] of userIds.entries()) {
     const user = users[id];
-
-    let message = `Пользователь ${i + 1} из ${totalUsers}:\n`;
-    message += `ID пользователя: ${id}\n`;
-    message += `Имя: ${user.name}\n`;
-    message += `Фамилия: ${user.surname}\n`;
-    message += `Местоположение: ${user.location}\n`;
-    message += `Дата рождения:\n`;
-    message += `День: ${user.dateOfBirth.day}\n`;
-    message += `Месяц: ${user.dateOfBirth.month}\n`;
-    message += `Год: ${user.dateOfBirth.year}\n`;
-    message += `Номер телефона: ${user.phoneNumber}\n`;
-    message += `\n`;
+    const message = `Пользователь ${i + 1} из ${userIds.length}:\nID пользователя: ${id}\nИмя: ${user.name}\nФамилия: ${user.surname}\nМестоположение: ${user.location}\nДата рождения: ${user.dateOfBirth.day}.${user.dateOfBirth.month}.${user.dateOfBirth.year}\nНомер телефона: ${user.phoneNumber}`;
+    
     try {
       await bot.sendMessage(userId, message);
     } catch (err) {
       console.error('Ошибка при отправке сообщения:', err);
     }
+    
     await delay(2500);
-  }}
+  }
+}
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
