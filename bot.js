@@ -9,7 +9,7 @@ bot.on('chat_join_request', (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   const username = msg.from.username;
-
+  console.log(`${username} (${userId}), Отправил заявку в канал с id - ${chatId}.`)
   userRequests[userId] = { chatId, username };
 
   bot.sendMessage(userId, 'Вы отправили заявку на вступление в канал. Пожалуйста, введите /start', {
@@ -43,20 +43,37 @@ bot.on('callback_query', async (callbackQuery) => {
 
     if (userRequests[requestId]) {
       try {
-        const { username } = userRequests[requestId];
+        await console.log(`Пользователь @${username} (${userId}) нажал на кнопку регестрации`)
+
+        await delay(1000)
+        await console.log(`Запрашиваю информацию у пользователя @${username} (${userId}). Запрос: Имя`)
         const name = await getUserInput(userId, 'Пожалуйста, укажите ваше имя:');
-        console.log(`Пользователь @${username} (${userid}) ввел свое имя.`)
+        await console.log(`Информация получена! Имя у пользователя @${username} (${userId}): ${name}`)
+
+        await delay(1000)
+        await console.log(`Запрашиваю информацию у пользователя @${username} (${userId}). Запрос: Фамилия`)
         const surname = await getUserInput(userId, 'Пожалуйста, укажите вашу фамилию:');
-        console.log(`Пользователь @${username} (${userid}) ввел свою фамилию.`)
+        await console.log(`Информация получена! Фамилия у пользователя @${username} (${userId}): ${surname}`)
+
+        await delay(1000)
+        await console.log(`Запрашиваю информацию у пользователя @${username} (${userId}). Запрос: Локация`)
         const location = await getUserInput(userId, 'Пожалуйста, укажите ваше место нахождения (название Села, Города, Деревни или Поселка):');
-        console.log(`Пользователь @${username} (${userid}) ввел свою лакацию.`)
+        await console.log(`Информация получена! Локация у пользователя @${username} (${userId}): ${location}`)
+
+        await delay(1000)
+        await console.log(`Запрашиваю информацию у пользователя @${username} (${userId}). Запрос: Дата рождения`)
         const birthDate = await new Promise((resolve, reject) => requestValidDate(bot, userId, resolve, username));
-        console.log(`Пользователь @${username} (${userid}) ввел свою (коректную) дату рождения.`)
+        await console.log(`Информация получена! Дата рождения у пользователя @${username} (${userId}): ${birthDate.day}.${birthDate.month}.${birthDate.year}`)
+
+        await delay(1000)
+        await console.log(`Запрашиваю информацию у пользователя @${username} (${userId}). Запрос: Номер телефона`)
         const phoneNumber = await getUserContact(userId);
-        console.log(`Пользователь @${username} (${userid}) ввел свой номер телефона. Это последнее что он сделал. Вся информация о нем:`)
+        await console.log(`Информация получена! Номер телефона у пользователя @${username} (${userId}): ${phoneNumber}. Это последнее дейстиве. Вся информация о нем:\n\n`)
+        
+        await delay(2500)
         const creatorId = data.creatorId;
-        await bot.sendMessage(creatorId, `Принял заявку в канал пользователя: @${username}. Информация о нем:\n\nИмя: ${name}\nФамилия: ${surname}\nМесто жительства: ${location}\nДата рождения: ${birthDate.day}.${birthDate.month}.${birthDate.year}\nТелефон: ${phoneNumber}`);
-        await console.log(`пользователь: @${username} (${userId}). Информация о нем:\n\nИмя: ${name}\nФамилия: ${surname}\nМесто жительства: ${location}\nДата рождения: ${birthDate.day}.${birthDate.month}.${birthDate.year}\nТелефон: ${phoneNumber}`)
+        await bot.sendMessage(creatorId, `Принял заявку в канал пользователя: @${username} (${userId}). Информация о нем:\n\nИмя: ${name}\nФамилия: ${surname}\nМесто жительства: ${location}\nДата рождения: ${birthDate.day}.${birthDate.month}.${birthDate.year}\nТелефон: ${phoneNumber}`);
+        await console.log(`Имя: ${name}\nФамилия: ${surname}\nМесто жительства: ${location}\nДата рождения: ${birthDate.day}.${birthDate.month}.${birthDate.year}\nТелефон: ${phoneNumber}\n`)
         const options = { reply_markup: { inline_keyboard: [[{ text: 'Перейти в канал', url: data.channelUrl }]] } };
         await bot.sendMessage(userId, 'Отлично! Вы успешно прошли регистрацию. Вы можете зайти в канал по этой ссылке:', options);
         await bot.approveChatJoinRequest(userRequests[requestId].chatId, requestId);
@@ -64,7 +81,6 @@ bot.on('callback_query', async (callbackQuery) => {
         await delay(1000);
         const userData = { userId, name, surname, location, dateOfBirth: birthDate, phoneNumber };
         saveUserData(userId, userData);
-        await console.log(`Пользователь успешно добавлен в базу данных.\nМожно просмотреть список всех пользователей с помощью /sui`)
         delete userRequests[requestId];
       } catch (err) {
         console.error('Ошибка при обработке данных пользователя:', err);
@@ -78,35 +94,42 @@ bot.onText(/\/bc (.+)/, async (msg, match) => {
   const message = match[1];
   
   if (userId.toString() === data.creatorId) {
+    console.log(`Создатель @${username} (${userId}) написал команду /bc с текстом: "${message}"`)
+    console.log(`Рассылка сообщения наченается...`)
     const users = loadAllUsers();
     await Promise.all(Object.keys(users).map(user => bot.sendMessage(user, message)));
     await bot.sendMessage(userId, 'Рассылка текстового сообщения завершена.');
-    await console.log(`Рассылка сообщения:\n\n${message}\n\nУспешно завершено!`)
+    await console.log(`Рассылка сообщения:\n\n${message}\n\nУспешно завершена!`)
   } else {
+    console.log(`Пользователь @${username} (${userId}) написал написал команду /bc с текстом: "${message}", но у него недостаточно прав для выполнения данной команды`)
     await bot.sendMessage(userId, 'У вас нет прав для выполнения этой команды.');
   }
 });
 
 bot.onText(/\/bc_(photo|video|gif) (.+)/, async (msg, match) => {
   const userId = msg.from.id;
+  const username = msg.from.username;
   const type = match[1];
   const message = match[2];
-  
   if (userId.toString() === data.creatorId) {
+    console.log(`Создатель @${username} (${userId}) написал команду /bc_${type} с текстом: "${message}"`)
+    console.log(`Запрос type для рассылки...`)
     bot.sendMessage(userId, `Пожалуйста, отправьте ${type} для рассылки.`);
-    
+    console.log(`${type} успешно получено!`)
     bot.once(type, async (msg) => {
       try {
+        console.log(`Рассылка сообщения наченается...`)
         const fileId = msg[type].file_id;
         const users = loadAllUsers();
         await Promise.all(Object.keys(users).map(user => bot[`send${capitalizeFirstLetter(type)}`](user, fileId, { caption: message })));
         await bot.sendMessage(userId, `Рассылка ${type} + сообщение завершена.`);
-        await console.log(`Рассылка сообщения:\n\n${message} + ${type}\n\nУспешно завершено!`)
+        await console.log(`Рассылка сообщения:\n\n${message} + ${type}\n\nУспешно завершена!`)
       } catch (err) {
         console.error(`Ошибка при отправке ${type}:`, err);
       }
     });
   } else {
+    console.log(`Пользователь @${username} (${userId}) написал написал команду /bc_${type} с текстом: "${message}", но у него недостаточно прав для выполнения данной команды`)
     await bot.sendMessage(userId, 'У вас нет прав для выполнения этой команды.');
   }
 });
@@ -115,15 +138,18 @@ bot.onText(/\/sui/, async (msg) => {
   const userId = msg.chat.id;
 
   if (userId.toString() === data.creatorId) {
+    console.log(`Создатель @${username} (${userId}) написал команду /sui`)
     const users = readUsersFromFile();
     if (Object.keys(users).length === 0) {
       bot.sendMessage(userId, 'Нет данных о пользователях.');
+      console.log(`Информация о пользователях не может быть получена, так как пользователей 0!`)
       return;
     }
 
     if (Object.keys(users).length > 3) {
       userStates[userId] = { waitingForConfirmation: true };
-      bot.sendMessage(userId, 'У вас более 3 пользователей. Бот будет отправлять сообщения с интервалом в 2,5 секунды. Вы готовы продолжить?', {
+      console.log(`В базе данных больше трех пользователей, ожидаем подтверждения от создателя...`)
+      bot.sendMessage(userId, `У вас более 3 пользователей (всего пользователей: ${Object.keys(users).length}). Бот будет отправлять сообщения с интервалом в 2,5 секунды. Вы готовы продолжить?`, {
         reply_markup: {
           keyboard: [[{ text: 'Да' }], [{ text: 'Нет' }]],
           one_time_keyboard: true,
@@ -144,10 +170,13 @@ bot.on('message', async (msg) => {
 
   if (userStates[userId]?.waitingForConfirmation) {
     if (text === 'да') {
+      console.log(`Операция начала выполнятся...`)
       const users = readUsersFromFile();
       await sendUsersInfo(userId, users);
+      console.log(`Операция успешно выполнена!`)
       bot.sendMessage(userId, 'Операция выполнена.');
     } else if (text === 'нет') {
+      console.log(`Операция отменена.`)
       bot.sendMessage(userId, 'Операция отменена.');
     }
     userStates[userId] = { waitingForConfirmation: false };
@@ -185,7 +214,7 @@ function capitalizeFirstLetter(string) {
 
 async function sendUsersInfo(userId, users) {
   const userIds = Object.keys(users);
-  bot.sendMessage(userId, `Всего пользователей: ${userIds.length}`);
+  bot.sendMessage(userId, `Все пользователи:`);
   
   await delay(1000);
   
